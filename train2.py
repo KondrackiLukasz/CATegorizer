@@ -1,8 +1,12 @@
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array, array_to_img
+from keras import Sequential
+from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from keras.optimizers import Adam
+from keras.preprocessing.image import ImageDataGenerator
+import matplotlib.pyplot as plt
+
+# physical_devices = tf.config.list_physical_devices('GPU')
+# tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 data_path = 'data/raw/'
 train_dir = 'data/train/'
@@ -49,15 +53,34 @@ model = Sequential([
 model.compile(optimizer=Adam(learning_rate=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
 
 # Train the model
-history = model.fit(train_dataset, epochs=50, validation_data=val_dataset,
-                    callbacks=[tf.keras.callbacks.ModelCheckpoint(
-                        'best_model2.h5', save_best_only=True, monitor='val_accuracy')])
+history = model.fit(train_dataset, steps_per_epoch=train_dataset.n // train_dataset.batch_size, epochs=50,
+                    validation_data=val_dataset, validation_steps=val_dataset.n // val_dataset.batch_size,
+                    callbacks=[tf.keras.callbacks.ModelCheckpoint('best_model2.h5', save_best_only=True, monitor='val_accuracy')])
 
 # Evaluate the model
-test_loss, test_acc = model.evaluate(test_dataset)
+test_loss, test_acc = model.evaluate(test_dataset, steps=test_dataset.n // test_dataset.batch_size)
 print('Test accuracy:', test_acc)
 
 # Save the best model
 model.save('best_model2.h5')
 
+# Plot training & validation accuracy values
+plt.figure(figsize=(12, 4))
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('Model accuracy')
+plt.ylabel('Accuracy')
+plt.xlabel('Epoch')
+plt.legend(['Train', 'Validation'], loc='upper left')
 
+# Plot training & validation loss values
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('Model loss')
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.legend(['Train', 'Validation'], loc='upper left')
+plt.tight_layout()
+plt.show()
