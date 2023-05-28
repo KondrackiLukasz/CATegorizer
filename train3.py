@@ -1,12 +1,13 @@
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array, array_to_img
+from keras.models import Sequential
+from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from keras.optimizers import Adam
+from keras.preprocessing.image import ImageDataGenerator
+from model_evaluation import evaluate_model, plot_train_history
 
-train_dir = 'data/train3/train/'
-val_dir = 'data/train3/val/'
-test_dir = 'data/train3/test/'
+train_dir = 'data/split3/train/'
+val_dir = 'data/split3/val/'
+test_dir = 'data/split3/test/'
 
 # Normalize pixel values and apply data augmentation for training data
 train_datagen = ImageDataGenerator(
@@ -20,15 +21,12 @@ train_datagen = ImageDataGenerator(
     fill_mode='reflect'
 )
 
-# Normalize pixel values for validation and test data
-val_test_datagen = ImageDataGenerator(rescale=1. / 255)
-
 train_dataset = train_datagen.flow_from_directory(train_dir, target_size=(256, 256), class_mode='categorical',
-                                                  batch_size=32)
-val_dataset = val_test_datagen.flow_from_directory(val_dir, target_size=(256, 256), class_mode='categorical',
-                                                   batch_size=32)
-test_dataset = val_test_datagen.flow_from_directory(test_dir, target_size=(256, 256), class_mode='categorical',
-                                                    batch_size=32)
+                                                  batch_size=32, shuffle=True, seed=42)
+val_dataset = train_datagen.flow_from_directory(val_dir, target_size=(256, 256), class_mode='categorical',
+                                                batch_size=32, shuffle=True, seed=42)
+test_dataset = train_datagen.flow_from_directory(test_dir, target_size=(256, 256), class_mode='categorical',
+                                                 batch_size=32, shuffle=True, seed=42)
 
 # Define the model architecture
 model = Sequential([
@@ -45,18 +43,19 @@ model = Sequential([
 ])
 
 # Compile the model
-model.compile(optimizer=Adam(learning_rate=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
+model.compile(optimizer=Adam(learning_rate=0.001),
+              loss='categorical_crossentropy', metrics=['accuracy'])
 
 # Train the model
 history = model.fit(train_dataset, epochs=50, validation_data=val_dataset,
                     callbacks=[tf.keras.callbacks.ModelCheckpoint(
-                        'best_model2.h5', save_best_only=True, monitor='val_accuracy')])
+                        'best_model_train3.h5', save_best_only=True, monitor='val_accuracy', mode='max')])
 
-# Evaluate the model
-test_loss, test_acc = model.evaluate(test_dataset)
-print('Test accuracy:', test_acc)
+# Start of evaluation code
+model = tf.keras.models.load_model('best_model_train3.h5')
 
-# Save the best model
-model.save('best_model2.h5')
+evaluate_model(model, train_datagen, train_dir, 'train')
+evaluate_model(model, train_datagen, val_dir, 'val')
+evaluate_model(model, train_datagen, test_dir, 'test')
 
-
+plot_train_history(history)
