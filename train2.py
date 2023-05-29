@@ -3,6 +3,7 @@ from keras.models import Sequential
 from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator
+from keras.callbacks import EarlyStopping
 from model_evaluation import evaluate_model, plot_train_history
 
 train_dir = 'data/train/'
@@ -21,12 +22,15 @@ train_datagen = ImageDataGenerator(
     fill_mode='reflect'
 )
 
+# Normalize pixel values for validation and test data
+val_test_datagen = ImageDataGenerator(rescale=1. / 255)
+
 train_dataset = train_datagen.flow_from_directory(train_dir, target_size=(256, 256), class_mode='categorical',
                                                   batch_size=32, shuffle=True, seed=42)
-val_dataset = train_datagen.flow_from_directory(val_dir, target_size=(256, 256), class_mode='categorical',
-                                                batch_size=32, shuffle=True, seed=42)
-test_dataset = train_datagen.flow_from_directory(test_dir, target_size=(256, 256), class_mode='categorical',
-                                                 batch_size=32, shuffle=True, seed=42)
+val_dataset = val_test_datagen.flow_from_directory(val_dir, target_size=(256, 256), class_mode='categorical',
+                                                   batch_size=32, shuffle=True, seed=42)
+test_dataset = val_test_datagen.flow_from_directory(test_dir, target_size=(256, 256), class_mode='categorical',
+                                                    batch_size=32, shuffle=True, seed=42)
 
 # Define the model architecture
 model = Sequential([
@@ -46,12 +50,17 @@ model = Sequential([
 model.compile(optimizer=Adam(learning_rate=0.001),
               loss='categorical_crossentropy', metrics=['accuracy'])
 
-# Train the model
-history = model.fit(train_dataset, epochs=50, validation_data=val_dataset,
-                    callbacks=[tf.keras.callbacks.ModelCheckpoint(
-                        'best_model_train2.h5', save_best_only=True, monitor='val_accuracy', mode='max')])
+# Define early stopping
+early_stopping = EarlyStopping(
+    monitor='val_accuracy', patience=20, mode='max', verbose=1, start_from_epoch=50)
 
-# Start of evaluation code
+# Train the model with early stopping
+history = model.fit(train_dataset, epochs=200, validation_data=val_dataset,
+                    callbacks=[tf.keras.callbacks.ModelCheckpoint(
+                        'best_model_train2.h5', save_best_only=True, monitor='val_accuracy', mode='max'),
+                        early_stopping])
+
+# Rest of the code
 model = tf.keras.models.load_model('best_model_train2.h5')
 
 evaluate_model(model, train_datagen, train_dir, 'train')

@@ -5,6 +5,7 @@ from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator
 from model_evaluation import evaluate_model, plot_train_history
 from kerastuner import RandomSearch
+from keras.callbacks import EarlyStopping
 
 
 def build_model(hp):
@@ -47,17 +48,24 @@ train_datagen = ImageDataGenerator(
     fill_mode='reflect'
 )
 
+# Normalize pixel values for validation and test data
+val_test_datagen = ImageDataGenerator(rescale=1. / 255)
+
 train_dataset = train_datagen.flow_from_directory(train_dir, target_size=(256, 256), class_mode='categorical',
                                                   batch_size=32, shuffle=True, seed=42)
-val_dataset = train_datagen.flow_from_directory(val_dir, target_size=(256, 256), class_mode='categorical',
-                                                batch_size=32, shuffle=True, seed=42)
-test_dataset = train_datagen.flow_from_directory(test_dir, target_size=(256, 256), class_mode='categorical',
-                                                 batch_size=32, shuffle=True, seed=42)
+val_dataset = val_test_datagen.flow_from_directory(val_dir, target_size=(256, 256), class_mode='categorical',
+                                                   batch_size=32, shuffle=True, seed=42)
+test_dataset = val_test_datagen.flow_from_directory(test_dir, target_size=(256, 256), class_mode='categorical',
+                                                    batch_size=32, shuffle=True, seed=42)
+
+# Define early stopping
+early_stopping = EarlyStopping(
+    monitor='val_accuracy', patience=20, mode='max', verbose=1, start_from_epoch=50)
 
 tuner = RandomSearch(
     build_model,
     objective='val_accuracy',
-    max_trials=5,  # how many model configurations would you like to test?
+    max_trials=10,  # how many model configurations would you like to test?
     # how many trials per variation? (same model could perform differently)
     executions_per_trial=1,
     directory='model_dir',
@@ -66,9 +74,8 @@ tuner = RandomSearch(
 
 tuner.search(x=train_dataset,
              epochs=80,
-             validation_data=val_dataset,
-             callbacks=[tf.keras.callbacks.ModelCheckpoint(
-                        'best_model_train2.h5', save_best_only=True, monitor='val_accuracy', mode='max')])
+             validation_data=val_dataset, callbacks=[early_stopping])
+
 
 best_model = tuner.get_best_models(num_models=1)[0]
 
