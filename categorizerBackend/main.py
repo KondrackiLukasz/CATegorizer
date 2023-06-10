@@ -2,33 +2,27 @@ import base64
 import cv2
 import numpy as np
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import img_to_array
 
 model = load_model('best_model_train2_final.h5')
 app = FastAPI()
 
-# Define a mapping from numerical class indices to actual breed names
-class_indices = ["British Shorthair", "Havanese", "Ragdoll", "Russian Blue", "Samoyed", "Shiba Inu"]
+# Add CORS middleware configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-def determine_breed(img):
-    # Prepare image for model prediction
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # If your model is trained on RGB images
-    img_resized = cv2.resize(img, (256, 256))  # Resize according to model's expected input size
-    img_array = img_to_array(img_resized)
-    img_array = np.expand_dims(img_array, axis=0)
-    img_array = img_array / 255.0  # Normalizing if your model is trained with images normalized in range [0, 1]
-
-    # Get prediction
-    prediction = model.predict(img_array)
-    predicted_breed_index = np.argmax(prediction)  # Assuming model returns softmax probabilities
-    predicted_breed = class_indices[predicted_breed_index]
-
-    return predicted_breed, prediction[0]
-
-def detect_roi(img):
-    # Create a copy of the image to not interfere with the prediction
-    img_copy = img.copy()
+def detect_roi(image_base64):
+    # Decode base64 image
+    img_data = base64.b64decode(image_base64)
+    img_array = np.frombuffer(img_data, dtype=np.uint8)
+    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
     # Load Haar cascade classifier for cat and dog face detection
     cat_cascade = cv2.CascadeClassifier('haarcascade_frontalcatface.xml')
