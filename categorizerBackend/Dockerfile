@@ -8,16 +8,15 @@ WORKDIR /app
 COPY . /app
 
 # Install any needed packages specified in requirements.txt
-RUN pip install --trusted-host pypi.python.org -r requirements.txt
+RUN apt-get update && \
+    apt-get install -y build-essential && \
+    apt-get install -y gfortran && \
+    apt-get install -y libglib2.0-0 && \
+    apt-get install -y libgl1-mesa-glx && \
+    pip install --trusted-host pypi.python.org -r requirements.txt
 
 # Install uvicorn
 RUN pip install uvicorn
-
-
-RUN apt-get update && \
-    apt-get install -y libglib2.0-0 && \
-    apt-get install -y libgl1-mesa-glx
-
 
 # Expose port 8080 for the FastAPI server
 EXPOSE 8080
